@@ -22,9 +22,14 @@ npm install
 npm test
 ```
 
-108 tests, no WordPress installation needed. The one check no script covers is
+126 tests, no WordPress installation needed. The one check no script covers is
 activating a generated theme in a real WordPress 7.0 install, which stays
 manual and belongs in the pull request description.
+
+A merge to `main` is a release. Every teammate with a global install picks it
+up at their next Claude Code session (`tools/auto-update.mjs`), so nothing
+lands on `main` with CI red, and a change the team should hear about gets a
+word before it is merged, not after.
 
 ## Coding standards for the PHP
 

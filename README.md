@@ -100,6 +100,7 @@ All Node, ESM, no build step. Node 20 or newer.
 | `tools/scaffold-theme.mjs` | The 15 file theme structure, seeded from the design system, including a `CLAUDE.md` carrying the real preset slugs. `--force` rewrites the owned files but keeps `templates/front-page.html` and `CLAUDE.md`, which are seeded once and then authored |
 | `tools/validate-blocks.mjs` | The vendored WordPress parser plus five house rules. `--theme` walks a whole theme, `--file` checks a single file (alone, or with `--theme` to resolve preset slugs), `--json` emits findings a model can act on |
 | `tools/lint-design-system.mjs` | The cross references JSON Schema cannot express, such as a button colour pointing at a palette slug that does not exist. Also a CLI: `node tools/lint-design-system.mjs design-system.json` exits 1 on errors |
+| `tools/auto-update.mjs` | The session-start check that keeps a global install on GitHub's `main` (see Install for Claude Code). `--register` and `--unregister` add and remove its hook in `~/.claude/settings.json`; `./install.sh` calls them |
 | `schemas/design-system.schema.json` | The contract. Rejects raw hex anywhere a preset slug belongs |
 
 ### House rules with a machine check
@@ -118,11 +119,31 @@ way, as `--skip-rule buildability-report`.
 
 ## Install for Claude Code
 
-Global (all projects on your machine):
+Global (all projects on your machine), and kept up to date:
 
 ```sh
 ./install.sh
 ```
+
+This copies the skills into `~/.claude/skills` and turns on automatic updates.
+At the start of every Claude Code session a hook checks `main` on GitHub. When
+it has moved, the hook fast-forwards your clone, copies the skills again and
+says so in one line. When nothing is new it says nothing.
+
+The hook only ever fast-forwards. A clone with uncommitted changes, another
+branch checked out, or commits of its own is left alone, and the hook says why.
+Offline, it tries again at the next session. It needs Node 20 or newer, which
+the tools need anyway. It runs from where the clone is, so after moving the
+clone, run `./install.sh` again from the new place.
+
+To install without automatic updates, or to turn them off later:
+
+```sh
+./install.sh --no-auto-update
+```
+
+`GUTENBERG_SKILLS_NO_UPDATE=1` in the environment skips the check without
+touching your settings.
 
 Project-scoped (commit skills into one client repo):
 
@@ -156,9 +177,10 @@ everyone gets them automatically, including future updates.
 
 1. Edit the SKILL.md under `skills/<name>/`.
 2. Regenerate the dist packages: `./make-dist.sh`
-3. Commit and push. Claude Code users get updates on `git pull` (global
-   installs: re-run `./install.sh`). claude.ai users re-save the new `.skill`
-   file, or the org admin re-uploads it.
+3. Commit and push. Merged to `main`, a change reaches every global install at
+   its next Claude Code session, with nothing to run by hand. Project-scoped
+   installs still update on `git pull` and `./install.sh --project`. claude.ai
+   users re-save the new `.skill` file, or the org admin re-uploads it.
 
 CI fails if `dist/` is out of date with `skills/`.
 
