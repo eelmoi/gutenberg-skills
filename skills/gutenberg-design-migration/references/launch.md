@@ -110,16 +110,54 @@ out with the mu-plugin alone, then 403 in 1.1 ms once the deny was in
 `.htaccess`. Some hosts also blank the `webroot` field when PHP never ran,
 which is the clearest signal where you get it, but do not rely on it: on
 another host the field stayed populated for a request the server had already
-refused. The SEO plugin needs one setting of its own, which no filter
-covers:
+refused.
+
+The SEO plugin needs one setting of its own, which no filter covers:
 
 ```sh
 wp option patch update wpseo_titles disable-author true --format=json
 wp rewrite flush
 ```
 
-Rolling back is deleting the file, removing the marked block, and setting
-`disable-author` to false.
+Then purge the page cache, after that setting and not before it, because
+nothing in LiteSpeed Cache purges when an option changes or the rewrite rules
+are flushed. On a LiteSpeed host the users sitemap went on answering 200 with
+the mu-plugin already in place, and `X-LiteSpeed-Cache: hit` in the response
+headers was the reason: adding a cache-busting query returned the 404 the
+route was by then giving. The route was shut and the cache was still handing
+the leak to whoever asked, a crawler included.
+
+From WP-CLI the purge cannot reach the server directly. LiteSpeed Cache purges
+by sending a header in a web response, so under WP-CLI it only queues the
+purge in the database and then asks the site to deliver it with a request to
+`admin-ajax.php` on the `siteurl`. On a staging install that is often a name
+that does not reach this server, or the production site's. The plugin's own
+`wp litespeed-purge all` stops with an error in that case, and before version
+7.9.2 it queues nothing at all. The action below always queues, but prints
+success whether or not the delivery worked, so deliver it yourself on the name
+the site is actually served on, and check that it went:
+
+```sh
+wp eval 'do_action( "litespeed_purge_all" );'
+curl -s -o /dev/null "https://<served-host>/wp-admin/admin-ajax.php"
+wp option get litespeed.purge.queue
+```
+
+The last command prints `-1` once the queue has been delivered. Make the
+delivery request straight away: with CSS and JS optimisation on, the purge
+deletes the optimised files at once while the cached pages still point at
+them. Pinning `WP_SITEURL` and `WP_HOME` in `wp-config.php` on staging removes
+the cause, because `admin_url()` follows them.
+
+Then request the route that showed `hit` again, logged out, through the public
+hostname and without a cache-busting query. A cached 404 or 302 is the pass,
+and a 200 is the leak still being served. `X-LiteSpeed-Cache` is not the only
+layer that can answer: QUIC.cloud sends `x-qc-cache`, LiteSpeed's ADC sends
+`x-lsadc-cache`, and a CDN sends its own header.
+
+Rolling back is deleting the file, removing the marked block, setting
+`disable-author` to false, and then purging the page cache the same way,
+because the cached redirects and 404s otherwise outlive the rollback.
 
 ## The login is what is left
 
@@ -229,6 +267,44 @@ and a PHP file is the wrong place to hold them.
   most shared hosting including cPanel, the whole account is writable and not
   just these two trees, so the rule narrows the easiest path rather than
   closing the class.
+
+  One host measured in October 2026 had a rule that read correctly and did
+  nothing. Its standard block in the site root wrapped `<Files *.php>` inside
+  `<Directory "/wp-content/uploads">`. `<Directory>` is server configuration
+  and is not valid in `.htaccess`: that LiteSpeed host skipped it, and Apache
+  answers every request under such a file with a 500. Its argument is also a
+  URL path rather than a filesystem path, so it would match nothing even in
+  server configuration. A `.php` file placed in uploads executed and returned
+  its output. Delete such a block once the rule below is verified, because the
+  day the site is served by Apache, a LiteSpeed server falling back to it
+  included, the block takes the whole site down.
+
+  Because the block was the host's own default, every site on that host
+  relying on it is open the same way. Run the same check on the sites already
+  there, not only on the one being launched, and report the default to the
+  host so it is fixed in the server's own configuration. Until it is, the file
+  below is the fallback rather than the fix: an upload bug that can write an
+  `.htaccess` into a subdirectory can map another extension to PHP beneath it.
+
+  The form that works is a `<FilesMatch>` in an `.htaccess` inside the
+  directory itself, `wp-content/uploads/.htaccess`, never the site root:
+
+  ```apache
+  # BEGIN WebAula uploads
+  <FilesMatch "(?i)\.(php[0-9]*|phtml|phps|phar|pht|inc)(\.|$)">
+    Require all denied
+  </FilesMatch>
+  # END WebAula uploads
+  ```
+
+  The pattern also covers `.inc`, which some PHP-FPM setups execute, and a PHP
+  extension followed by another one, such as `shell.php.jpg`. What settles it
+  is a set of requests against probe files: the server's own 403 for a `.php`
+  and an `.inc`, and 200 for a plain file in the same directory. Check that the
+  403 is the server's, from its error page or the deny line in its log as with
+  the xmlrpc deny above, because a security plugin or a CDN rule returns the
+  same status. Have the probes print a fixed marker, never `phpinfo()`, and
+  delete them afterwards, confirming the 404.
 - **`disable_functions` is depth, not a sandbox, and it is not ours to set.**
   `exec`, `passthru`, `shell_exec`, `system`, `proc_open` and `popen` are what
   turns a dropped file into a running process, which is the gap that
@@ -321,8 +397,11 @@ because the reason is not obvious and the next reader will otherwise add them.
       question, and open registration with the default role is how spam
       accounts arrive
 - [ ] PHP execution denied in `wp-content/uploads` and in any cache directory,
-      and the rule verified by making the request rather than by reading it
-      back
+      verified by making the requests rather than by reading the rule back
+      (the server's own 403 for a `.php` and an `.inc` probe, 200 for a plain
+      file), the probes deleted, any host-default `<Directory>` block removed,
+      and where that default was the broken one, the other sites on the same
+      host checked too
 - [ ] `disable_functions` requested from the host in php.ini or the FPM pool,
       then verified by a script that calls `proc_open` and fails (a `.user.ini`
       cannot set it, and nothing reports that it did not), or a note naming the
@@ -340,3 +419,10 @@ because the reason is not obvious and the next reader will otherwise add them.
 - [ ] Staging closed to the public if it holds real customer data
 - [ ] Absolute staging URLs converted in post content
 - [ ] Search engines unblocked
+- [ ] Page cache purged as the very last step, after everything above: a page
+      cached while search engines were blocked keeps its noindex, and one
+      cached before the hardening keeps the leak. The purge confirmed
+      delivered (`wp option get litespeed.purge.queue` prints `-1`), then the
+      route that showed `hit` requested again logged out, through the public
+      hostname and without a cache-busting query: a cached 404 or 302 passes,
+      a 200 does not
