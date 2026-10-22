@@ -526,7 +526,7 @@ Image/video background with overlay and inner content.
 |-----------|------|---------|-------|
 | url | string | — | Background media URL |
 | id | number | — | Attachment ID |
-| alt | string | "" | Alt text for background image |
+| alt | string | "" | Alt text for background image. **Comment JSON only**: no HTML source, see gotchas |
 | dimRatio | number | 100 | Overlay opacity 0–100 |
 | overlayColor | string | — | Named color slug |
 | customOverlayColor | string | — | Hex color |
@@ -575,6 +575,10 @@ Cover with solid color (no image):
 **Gotchas:**
 - **Element order inside wrapper**: `<img>` (or `<video>`) FIRST, then `<span>` overlay, then `<div class="wp-block-cover__inner-container">`. Getting this order wrong causes block recovery.
 - **No `<span>` before `<img>`**: The overlay span always comes AFTER the media element, not before.
+- **`alt` lives in the comment JSON, not only on the `<img>`.** Unlike `wp:image`, the cover's `alt` attribute has no HTML source in WordPress 7.0+, so the parser never reads it back from `<img alt>`. Alt text written only on the `<img>` makes save() output `alt=""`, and the block goes to recovery. Write it in both places, identically:
+  `<!-- wp:cover {"url":"https://example.com/hero.jpg","id":10,"alt":"Fleet at the harbour","dimRatio":50} -->` with `<img class="wp-block-cover__image-background wp-image-10" alt="Fleet at the harbour" src="https://example.com/hero.jpg" data-object-fit="cover"/>`. Decorative images keep `alt=""` on the `<img>` and omit `alt` from the JSON.
+- `focalPoint` `{"x":0.5,"y":0.62}` adds `style="object-position:50% 62%"` and `data-object-position="50% 62%"` to the `<img>` (rounded to whole percent).
+- A `customGradient` overlay over an image adds `wp-block-cover__gradient-background has-background-gradient` to the overlay span and `style="background:<gradient>"`.
 - `dimRatio` maps to class `has-background-dim-{value}` (e.g. `has-background-dim-60`) PLUS `has-background-dim`. Never use `style="opacity:0.6"` — use the CSS class.
 - When `isDark` is false, add `is-light` class to outer div
 - Image element: class `wp-block-cover__image-background wp-image-{id}`, with `data-object-fit="cover"`
