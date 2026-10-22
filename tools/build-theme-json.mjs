@@ -22,11 +22,18 @@ import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { lintDesignSystem } from "./lint-design-system.mjs";
 
+// WordPress expands "var:preset|font-size|h2" by joining the parts with "--",
+// without touching the slug, so it becomes var(--wp--preset--font-size--h2).
+// The preset itself is declared under _wp_to_kebab_case(slug), which is
+// --wp--preset--font-size--h-2. A raw slug with a letter-digit boundary
+// therefore dangles: every h1-h3 element style fell back to the body size
+// (seen on WordPress 7.1). Kebab-casing here makes both names agree, and is a
+// no-op for slugs that are already kebab case or purely numeric ("50").
 const PRESET_VAR = {
-  color: (slug) => `var:preset|color|${slug}`,
-  fontFamily: (slug) => `var:preset|font-family|${slug}`,
-  fontSize: (slug) => `var:preset|font-size|${slug}`,
-  spacing: (slug) => `var:preset|spacing|${slug}`
+  color: (slug) => `var:preset|color|${wpKebab(slug)}`,
+  fontFamily: (slug) => `var:preset|font-family|${wpKebab(slug)}`,
+  fontSize: (slug) => `var:preset|font-size|${wpKebab(slug)}`,
+  spacing: (slug) => `var:preset|spacing|${wpKebab(slug)}`
 };
 
 // WordPress runs settings.custom keys through _wp_to_kebab_case before naming

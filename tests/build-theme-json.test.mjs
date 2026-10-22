@@ -116,6 +116,42 @@ test("heading line-height references kebab-case digits the way WordPress does", 
   assert.equal(theme.settings.custom.lineHeight.h1, "1.15");
 });
 
+test("heading font-size references kebab-case digits the way WordPress does", () => {
+  // WordPress declares the "h2" preset as --wp--preset--font-size--h-2 but
+  // expands var:preset|font-size|h2 to --wp--preset--font-size--h2 without
+  // kebab-casing, so a reference built from the raw slug dangles and every
+  // heading renders at the body size. Verified on WordPress 7.1.
+  const theme = buildThemeJson(example);
+  assert.equal(theme.styles.elements.h1.typography.fontSize, "var:preset|font-size|h-1");
+  assert.equal(theme.styles.elements.h2.typography.fontSize, "var:preset|font-size|h-2");
+  assert.equal(theme.styles.elements.h3.typography.fontSize, "var:preset|font-size|h-3");
+  // Slugs without a letter-digit boundary are untouched.
+  assert.equal(theme.styles.typography.fontSize, "var:preset|font-size|body");
+  // The preset definitions keep the raw slug, WordPress kebab-cases those itself.
+  assert.ok(theme.settings.typography.fontSizes.some((size) => size.slug === "h2"));
+});
+
+test("a fontFace fontStretch range reaches theme.json unchanged", () => {
+  const doc = withChange((d) => {
+    d.typography.fontFamilies[1].fontFace = [
+      {
+        fontFamily: "Archivo",
+        fontWeight: "400 900",
+        fontStyle: "normal",
+        fontStretch: "62% 125%",
+        src: ["file:./assets/fonts/archivo-latin.woff2"]
+      }
+    ];
+  });
+  const families = buildThemeJson(doc).settings.typography.fontFamilies;
+  assert.equal(families[1].fontFace[0].fontStretch, "62% 125%");
+});
+
+test("numeric spacing slugs pass through the kebab transform unchanged", () => {
+  const theme = buildThemeJson(example);
+  assert.equal(theme.styles.spacing.blockGap, "var:preset|spacing|40");
+});
+
 test("one fluid size turns the global flag on and flags every preset", () => {
   // Only "display" opts in. WordPress fluidizes every preset unless it
   // carries an explicit fluid: false, so the non-fluid sizes need one.

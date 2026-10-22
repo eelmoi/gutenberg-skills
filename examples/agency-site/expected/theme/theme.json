@@ -198,19 +198,19 @@
       },
       "h1": {
         "typography": {
-          "fontSize": "var:preset|font-size|h1",
+          "fontSize": "var:preset|font-size|h-1",
           "lineHeight": "var(--wp--custom--line-height--h-1)"
         }
       },
       "h2": {
         "typography": {
-          "fontSize": "var:preset|font-size|h2",
+          "fontSize": "var:preset|font-size|h-2",
           "lineHeight": "var(--wp--custom--line-height--h-2)"
         }
       },
       "h3": {
         "typography": {
-          "fontSize": "var:preset|font-size|h3",
+          "fontSize": "var:preset|font-size|h-3",
           "lineHeight": "var(--wp--custom--line-height--h-3)"
         }
       },
