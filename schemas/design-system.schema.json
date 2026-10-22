@@ -107,6 +107,10 @@
                     "fontWeight": { "type": "string" },
                     "fontStyle": { "type": "string" },
                     "fontDisplay": { "type": "string" },
+                    "fontStretch": {
+                      "description": "The @font-face font-stretch range, for variable fonts with a width axis, e.g. \"62% 125%\" for Archivo. Without it the browser treats the face as 100% only and ignores font-stretch in the CSS.",
+                      "type": "string"
+                    },
                     "src": {
                       "type": "array",
                       "minItems": 1,

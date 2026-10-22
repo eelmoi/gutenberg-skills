@@ -34,6 +34,21 @@ test("the worked example validates", () => {
   assert.equal(ok, true, JSON.stringify(validate.errors, null, 2));
 });
 
+test("a self-hosted width-axis font may declare its fontStretch range", () => {
+  const doc = withChange((d) => {
+    d.typography.fontFamilies[1].fontFace = [
+      {
+        fontFamily: "Archivo",
+        fontWeight: "400 900",
+        fontStyle: "normal",
+        fontStretch: "62% 125%",
+        src: ["file:./assets/fonts/archivo-latin.woff2"]
+      }
+    ];
+  });
+  assert.equal(validate(doc), true, JSON.stringify(validate.errors, null, 2));
+});
+
 test("a raw hex button background is rejected", () => {
   const doc = withChange((d) => {
     d.elements.button.background = "#1f6feb";
