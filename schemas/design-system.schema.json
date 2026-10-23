@@ -106,11 +106,24 @@
                     "fontFamily": { "type": "string" },
                     "fontWeight": { "type": "string" },
                     "fontStyle": { "type": "string" },
-                    "fontDisplay": { "type": "string" },
+                    "fontDisplay": {
+                      "description": "Lowercase, as CSS spells it. WordPress silently replaces any other value with fallback.",
+                      "enum": ["auto", "block", "swap", "fallback", "optional"]
+                    },
                     "fontStretch": {
-                      "description": "The @font-face font-stretch range, for variable fonts with a width axis, e.g. \"62% 125%\" for Archivo. Without it the browser treats the face as 100% only and ignores font-stretch in the CSS.",
+                      "description": "The @font-face font-stretch range, e.g. \"62% 125%\" for Archivo's width axis. Left out, browsers apply the font's whole width axis, so it matters when one family has faces of different widths or the range has to be narrowed.",
                       "type": "string"
                     },
+                    "unicodeRange": {
+                      "description": "The code points this file covers, for a font split into subset files such as latin and latin-ext.",
+                      "type": "string"
+                    },
+                    "fontFeatureSettings": { "type": "string" },
+                    "fontVariationSettings": { "type": "string" },
+                    "sizeAdjust": { "type": "string" },
+                    "ascentOverride": { "type": "string" },
+                    "descentOverride": { "type": "string" },
+                    "lineGapOverride": { "type": "string" },
                     "src": {
                       "type": "array",
                       "minItems": 1,

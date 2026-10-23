@@ -49,6 +49,33 @@ test("a self-hosted width-axis font may declare its fontStretch range", () => {
   assert.equal(validate(doc), true, JSON.stringify(validate.errors, null, 2));
 });
 
+test("every fontFace key WordPress keeps is allowed, and fontDisplay is lowercase", () => {
+  const face = {
+    fontFamily: "Archivo",
+    fontWeight: "400 900",
+    fontStyle: "normal",
+    fontDisplay: "swap",
+    unicodeRange: "U+0100-024F, U+1E00-1EFF",
+    fontFeatureSettings: '"ss01" 1',
+    fontVariationSettings: '"wdth" 100',
+    sizeAdjust: "105%",
+    ascentOverride: "90%",
+    descentOverride: "22%",
+    lineGapOverride: "0%",
+    src: ["file:./assets/fonts/archivo-latin-ext.woff2"]
+  };
+  const doc = withChange((d) => {
+    d.typography.fontFamilies[1].fontFace = [face];
+  });
+  assert.equal(validate(doc), true, JSON.stringify(validate.errors, null, 2));
+
+  // WordPress swaps any other spelling for fallback without saying so.
+  const shouty = withChange((d) => {
+    d.typography.fontFamilies[1].fontFace = [{ ...face, fontDisplay: "Swap" }];
+  });
+  assert.match(errorsFor(shouty).join("\n"), /fontDisplay must be equal to one of the allowed values/);
+});
+
 test("a raw hex button background is rejected", () => {
   const doc = withChange((d) => {
     d.elements.button.background = "#1f6feb";
