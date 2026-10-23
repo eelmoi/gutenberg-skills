@@ -60,8 +60,35 @@ independently:
 
 | Path | Upstream file | Pinned to |
 |---|---|---|
-| `skills/gutenberg-block-authoring/` | `gutenberg-content/` | WordPress 7.0 snapshot |
+| `skills/gutenberg-block-authoring/` | `gutenberg-content/` | `62c8a6c8`, plus the local patches below |
 | `tools/vendor/validate-blocks.cjs` | `validate-blocks.js` | `62c8a6c8` |
 
 Check them together. If a future WordPress release starts triggering block
 recovery, take an updated upstream release before debugging by hand.
+
+## skills/gutenberg-block-authoring/
+
+Source: the same upstream, folder `gutenberg-content/`, at `62c8a6c8`.
+
+### Local patches
+
+`SKILL.md` was byte-identical to upstream until these. Each one corrects markup
+the skill taught that WordPress 7.0 sends to block recovery or silently
+rewrites, checked in the 7.0 editor. They are worth offering upstream. Until
+upstream has them, re-apply them after every refresh, because a refresh is a
+copy:
+
+1. **Rule 6, attributes with no source.** The parser reads them only from the
+   comment JSON, but save() may still render them, and then the HTML must
+   match.
+2. **Rule 7 and the button class table.** Preset classes use the kebab-cased
+   slug: `h2` gives `has-h-2-font-size`.
+3. **`wp:cover` `alt`.** It has had no HTML source since WordPress 6.5, so it
+   goes in the comment JSON and on the `<img>`, or on the background `<div>`
+   as `aria-label` for a parallax or repeated cover. The attribute table, the
+   main example and a gotcha say so.
+4. **`wp:cover` overlay classes.** A `dimRatio` of 50 gets `has-background-dim`
+   alone, other values round to the nearest 10, and
+   `wp-block-cover__gradient-background` is left out at 0. The main example
+   no longer carries `has-background-dim-50`.
+5. **`wp:cover` `focalPoint`.** A gotcha gives its `object-position` output.

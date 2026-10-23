@@ -190,11 +190,12 @@ The repo vendors from the same upstream in two places, pinned independently:
 
 | Path | Upstream file | Pinned to |
 |---|---|---|
-| `skills/gutenberg-block-authoring/` | `gutenberg-content/` | WordPress 7.0 snapshot |
+| `skills/gutenberg-block-authoring/` | `gutenberg-content/` | commit `62c8a6c8`, plus local patches |
 | `tools/vendor/validate-blocks.cjs` | `validate-blocks.js` | commit `62c8a6c8` |
 
-Details, the three mechanical modifications to the validator, and how to enable
-its optional per-attribute type checks are in `tools/UPSTREAM.md`.
+Details, the three mechanical modifications to the validator, the local patches
+to the skill, and how to enable the validator's optional per-attribute type
+checks are in `tools/UPSTREAM.md`.
 
 License for both: MIT, Copyright (c) 2026 Ross Mulcahy. The licence text is
 included at `skills/gutenberg-block-authoring/LICENSE` and

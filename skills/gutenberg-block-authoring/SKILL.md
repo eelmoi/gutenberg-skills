@@ -46,8 +46,8 @@ Every Gutenberg post is stored as HTML with block delimiter comments.
 6. **Attribute source types**:
    - `"source": "attribute"` — value is read from an HTML attribute on the `selector` element
    - `"source": "rich-text"` — value is read from innerHTML of the `selector` element
-   - No source — value is stored only in the JSON comment and NOT in the HTML
-7. **Class names**: Block wrapper elements get `wp-block-{name}` class (hyphens replace slashes, e.g., `wp-block-image`). The block editor adds this automatically via `useBlockProps`. When writing raw serialized markup, you MUST include it.
+   - No source: the parser reads the value only from the JSON comment, never from the HTML. When save() also renders it (cover `url` as `src`, cover `alt`), the HTML must carry the same value or the block goes to recovery
+7. **Class names**: Block wrapper elements get `wp-block-{name}` class (hyphens replace slashes, e.g., `wp-block-image`). The block editor adds this automatically via `useBlockProps`. When writing raw serialized markup, you MUST include it. Preset classes use the slug kebab-cased the way WordPress does, with a hyphen between a letter and a digit: `"fontSize":"h2"` gives `has-h-2-font-size`, and `"backgroundColor":"accent2"` gives `has-accent-2-background-color`.
 8. **Nesting**: Inner blocks go between the opening and closing delimiters of the parent. Maintain proper indentation for readability but whitespace between blocks is not significant for parsing.
 
 ### What Causes Block Recovery (Validation Errors)
@@ -526,7 +526,7 @@ Image/video background with overlay and inner content.
 |-----------|------|---------|-------|
 | url | string | — | Background media URL |
 | id | number | — | Attachment ID |
-| alt | string | "" | Alt text for background image. **Comment JSON only**: no HTML source, see gotchas |
+| alt | string | "" | Alt text for background image. Not parsed from the HTML: write it in the comment JSON and on the `<img>`, see gotchas |
 | dimRatio | number | 100 | Overlay opacity 0–100 |
 | overlayColor | string | — | Named color slug |
 | customOverlayColor | string | — | Hex color |
@@ -547,8 +547,8 @@ Image/video background with overlay and inner content.
 Cover with background image:
 
 ```html
-<!-- wp:cover {"url":"https://example.com/hero.jpg","id":10,"dimRatio":50,"overlayColor":"black","isUserOverlayColor":true} -->
-<div class="wp-block-cover"><img class="wp-block-cover__image-background wp-image-10" alt="" src="https://example.com/hero.jpg" data-object-fit="cover"/><span aria-hidden="true" class="wp-block-cover__background has-black-background-color has-background-dim-50 has-background-dim"></span><div class="wp-block-cover__inner-container">
+<!-- wp:cover {"url":"https://example.com/hero.jpg","id":10,"alt":"Fleet at the harbour","dimRatio":50,"overlayColor":"black","isUserOverlayColor":true} -->
+<div class="wp-block-cover"><img class="wp-block-cover__image-background wp-image-10" alt="Fleet at the harbour" src="https://example.com/hero.jpg" data-object-fit="cover"/><span aria-hidden="true" class="wp-block-cover__background has-black-background-color has-background-dim"></span><div class="wp-block-cover__inner-container">
 <!-- wp:heading {"level":1} -->
 <h1 class="wp-block-heading">Hero Title</h1>
 <!-- /wp:heading -->
@@ -575,11 +575,10 @@ Cover with solid color (no image):
 **Gotchas:**
 - **Element order inside wrapper**: `<img>` (or `<video>`) FIRST, then `<span>` overlay, then `<div class="wp-block-cover__inner-container">`. Getting this order wrong causes block recovery.
 - **No `<span>` before `<img>`**: The overlay span always comes AFTER the media element, not before.
-- **`alt` lives in the comment JSON, not only on the `<img>`.** Unlike `wp:image`, the cover's `alt` attribute has no HTML source in WordPress 7.0+, so the parser never reads it back from `<img alt>`. Alt text written only on the `<img>` makes save() output `alt=""`, and the block goes to recovery. Write it in both places, identically:
-  `<!-- wp:cover {"url":"https://example.com/hero.jpg","id":10,"alt":"Fleet at the harbour","dimRatio":50} -->` with `<img class="wp-block-cover__image-background wp-image-10" alt="Fleet at the harbour" src="https://example.com/hero.jpg" data-object-fit="cover"/>`. Decorative images keep `alt=""` on the `<img>` and omit `alt` from the JSON.
+- **`alt` lives in the comment JSON, not only on the `<img>`.** Unlike `wp:image`, the cover's `alt` attribute has had no HTML source since WordPress 6.5, so the parser never reads it back from `<img alt>`. Alt text written only on the `<img>` makes save() output `alt=""`, and the block goes to recovery. Write it in both places, identically, as in the example above. Decorative images keep `alt=""` on the `<img>` and omit `alt` from the JSON. A `hasParallax` or `isRepeated` cover has no `<img>`: save() puts the alt on the background `<div>` as `role="img" aria-label="Fleet at the harbour"` instead.
 - `focalPoint` `{"x":0.5,"y":0.62}` adds `style="object-position:50% 62%"` and `data-object-position="50% 62%"` to the `<img>` (rounded to whole percent).
-- A `customGradient` overlay over an image adds `wp-block-cover__gradient-background has-background-gradient` to the overlay span and `style="background:<gradient>"`.
-- `dimRatio` maps to class `has-background-dim-{value}` (e.g. `has-background-dim-60`) PLUS `has-background-dim`. Never use `style="opacity:0.6"` — use the CSS class.
+- A `customGradient` overlay over an image adds `has-background-gradient` to the overlay span and `style="background:<gradient>"`, plus `wp-block-cover__gradient-background` unless `dimRatio` is 0.
+- `dimRatio` maps to class `has-background-dim-{value}`, rounded to the nearest 10 (e.g. `has-background-dim-60`), PLUS `has-background-dim`. A `dimRatio` of exactly 50 gets `has-background-dim` alone. Never use `style="opacity:0.6"`; use the CSS class.
 - When `isDark` is false, add `is-light` class to outer div
 - Image element: class `wp-block-cover__image-background wp-image-{id}`, with `data-object-fit="cover"`
 - Video element: class `wp-block-cover__video-background`, with `autoplay muted loop playsinline`
@@ -695,6 +694,8 @@ Buttons are the most error-prone block. Every styled button MUST follow these ru
 | `fontSize` named preset | `has-{slug}-font-size` | `<a>` |
 | `fontSize` preset OR `style.typography.fontSize` | `has-custom-font-size` | `<a>` |
 | Always (last) | `wp-element-button` | `<a>` |
+
+`{slug}` is kebab-cased as in rule 7: `"fontSize":"h2"` gives `has-h-2-font-size`.
 
 **Step 2 — Build the `<a>` inline `style` in this exact property order:**
 
