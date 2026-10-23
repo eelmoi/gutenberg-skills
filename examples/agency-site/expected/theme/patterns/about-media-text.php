@@ -17,5 +17,5 @@
 <!-- wp:paragraph -->
 <p>Kuuden hengen tiimi Tampereelta. Teemme itse sen mita myymme, emme valita tyota eteenpain.</p>
 <!-- /wp:paragraph -->
-</div><figure class="wp-block-media-text__media"><img src="/wp-content/themes/agency-site/assets/tiimi.jpg" alt="Tiimi tyopoydan aaressa" class="size-full"/></figure></div>
+</div><figure class="wp-block-media-text__media"><img src="/wp-content/themes/agency-site/assets/tiimi.jpg" alt="Tiimi tyopoydan aaressa"/></figure></div>
 <!-- /wp:media-text -->
