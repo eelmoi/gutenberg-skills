@@ -11,7 +11,7 @@
 <!-- wp:media-text {"mediaType":"image","mediaUrl":"/wp-content/themes/agency-site/assets/tiimi.jpg","mediaPosition":"right","verticalAlignment":"center","align":"wide"} -->
 <div class="wp-block-media-text alignwide has-media-on-the-right is-stacked-on-mobile is-vertically-aligned-center"><div class="wp-block-media-text__content">
 <!-- wp:heading {"level":2,"fontSize":"h2"} -->
-<h2 class="wp-block-heading has-h2-font-size">Kuka meita johtaa</h2>
+<h2 class="wp-block-heading has-h-2-font-size">Kuka meita johtaa</h2>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->

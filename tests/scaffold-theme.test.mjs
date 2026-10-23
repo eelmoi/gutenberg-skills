@@ -137,6 +137,9 @@ test("CLAUDE.md is seeded with the real slugs, so the next session starts inform
   assert.match(claude, /var:preset\\\|spacing\\\|50/);
   assert.equal(/`var:preset\|/.test(claude), false, "a bare pipe splits the table cell");
   assert.match(claude, /720px/);
+  // Classes and custom properties carry the kebab-cased slug, not the raw one.
+  assert.match(claude, /\| `h2` \| 1\.875rem \| `has-h-2-font-size` \|/);
+  assert.match(claude, /\| `var\(--wp--preset--spacing--50\)` \|/);
 });
 
 test("a meta.name needing escaping cannot break the generated files", () => {

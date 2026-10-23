@@ -24,6 +24,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, extname, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
+import { wpKebab } from "./build-theme-json.mjs";
 
 const require = createRequire(import.meta.url);
 const upstream = require("./vendor/validate-blocks.cjs");
@@ -91,9 +92,21 @@ function ruleNoRawHex(markup) {
   }));
 }
 
+/**
+ * Every preset the markup names, with the form it is named in, because
+ * WordPress resolves each form differently:
+ * - "slug": a named attribute such as "fontSize":"h2". The editor looks the
+ *   preset up by its exact slug.
+ * - "reference": var:preset|font-size|h2 in block attributes. WordPress
+ *   kebab-cases the slug when it renders the block, so h2 and h-2 both
+ *   resolve to the h2 preset.
+ * - "property": var(--wp--preset--font-size--h-2) in an inline style. CSS is
+ *   never rewritten, so it must use the name WordPress declares, which is the
+ *   kebab-cased slug.
+ */
 function collectPresetReferences(markup) {
   const refs = [];
-  const push = (kind, slug) => refs.push({ kind, slug });
+  const push = (kind, slug, form = "slug") => refs.push({ kind, slug, form });
   // style.typography.fontSize carries custom lengths like "13px" that the
   // fontSize pattern also matches, so digit-leading values are skipped for
   // font sizes only. Colour attributes never legally carry a length, so their
@@ -106,7 +119,12 @@ function collectPresetReferences(markup) {
   for (const [, kind, slug] of markup.matchAll(
     /var:preset\|(color|spacing|font-size|font-family)\|([a-z0-9-]+)/g
   )) {
-    push(kind, slug);
+    push(kind, slug, "reference");
+  }
+  for (const [, kind, name] of markup.matchAll(
+    /var\(--wp--preset--(color|spacing|font-size|font-family)--([a-z0-9-]+)\)/g
+  )) {
+    push(kind, name, "property");
   }
   // gradient is left out: default WordPress gradients are active, so gradient
   // slugs cannot be checked against the palette.
@@ -126,11 +144,17 @@ function collectPresetReferences(markup) {
 
 function themePresets(themeJson) {
   const settings = themeJson?.settings ?? {};
+  // The slugs as theme.json writes them, and the kebab-cased names WordPress
+  // declares the custom properties under.
+  const both = (entries) => {
+    const slugs = new Set((entries ?? []).map((entry) => entry.slug));
+    return { slugs, names: new Set([...slugs].map(wpKebab)) };
+  };
   return {
-    color: new Set((settings.color?.palette ?? []).map((entry) => entry.slug)),
-    spacing: new Set((settings.spacing?.spacingSizes ?? []).map((entry) => entry.slug)),
-    "font-size": new Set((settings.typography?.fontSizes ?? []).map((entry) => entry.slug)),
-    "font-family": new Set((settings.typography?.fontFamilies ?? []).map((entry) => entry.slug))
+    color: both(settings.color?.palette),
+    spacing: both(settings.spacing?.spacingSizes),
+    "font-size": both(settings.typography?.fontSizes),
+    "font-family": both(settings.typography?.fontFamilies)
   };
 }
 
@@ -150,14 +174,21 @@ function rulePresetSlugsExist(markup, themeJson) {
   const seen = new Set();
   const out = [];
 
-  for (const { kind, slug } of collectPresetReferences(markup)) {
-    const key = `${kind}|${slug}`;
-    if (seen.has(key) || presets[kind].has(slug)) continue;
+  for (const { kind, slug, form } of collectPresetReferences(markup)) {
+    const { slugs, names } = presets[kind];
+    const found =
+      form === "slug" ? slugs.has(slug) : names.has(form === "reference" ? wpKebab(slug) : slug);
+    const key = `${form}|${kind}|${slug}`;
+    if (found || seen.has(key)) continue;
     seen.add(key);
     out.push({
       rule: "preset-slugs-exist",
       level: "error",
-      message: `references the ${kind} preset "${slug}", which theme.json does not define. Known: ${[...presets[kind]].join(", ") || "none"}`
+      message:
+        form === "property"
+          ? `uses var(--wp--preset--${kind}--${slug}), which theme.json does not declare. ` +
+            `WordPress names presets by the kebab-cased slug: ${[...names].join(", ") || "none"}`
+          : `references the ${kind} preset "${slug}", which theme.json does not define. Known: ${[...slugs].join(", ") || "none"}`
     });
   }
   return out;

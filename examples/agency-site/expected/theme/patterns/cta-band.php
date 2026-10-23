@@ -11,7 +11,7 @@
 <!-- wp:group {"backgroundColor":"primary","textColor":"surface","align":"full","style":{"spacing":{"padding":{"top":"var(--wp--custom--section-rhythm--default)","bottom":"var(--wp--custom--section-rhythm--default)"}}},"layout":{"type":"constrained"}} -->
 <div class="wp-block-group alignfull has-surface-color has-primary-background-color has-text-color has-background" style="padding-top:var(--wp--custom--section-rhythm--default);padding-bottom:var(--wp--custom--section-rhythm--default)">
 <!-- wp:heading {"style":{"typography":{"textAlign":"center"}},"level":2,"fontSize":"h2"} -->
-<h2 class="wp-block-heading has-text-align-center has-h2-font-size">Aloitetaan pienesta</h2>
+<h2 class="wp-block-heading has-text-align-center has-h-2-font-size">Aloitetaan pienesta</h2>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph {"style":{"typography":{"textAlign":"center"}}} -->

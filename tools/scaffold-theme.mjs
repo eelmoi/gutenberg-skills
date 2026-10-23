@@ -19,7 +19,7 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { buildThemeJson, serialize } from "./build-theme-json.mjs";
+import { buildThemeJson, serialize, wpKebab } from "./build-theme-json.mjs";
 import { lintDesignSystem } from "./lint-design-system.mjs";
 
 // Seeded once, never overwritten, --force included. Stage 5 authors the front
@@ -385,11 +385,18 @@ function claudeMd(doc, paths = {}) {
   const input = paths.input ?? "design-system.json";
   const themeJson = paths.themeJson ?? "theme.json";
   const colours = doc.palette.map((c) => `| \`${c.slug}\` | ${c.name} | ${c.color} |`);
-  const sizes = doc.typography.fontSizes.map((s) => `| \`${s.slug}\` | ${s.size} |`);
+  // Classes and custom properties carry the kebab-cased slug, "h2" gives
+  // has-h-2-font-size, so the table spells them out rather than leave the
+  // next session to derive them from the raw slug.
+  const sizes = doc.typography.fontSizes.map(
+    (s) => `| \`${s.slug}\` | ${s.size} | \`has-${wpKebab(s.slug)}-font-size\` |`
+  );
   // The pipes are escaped because a bare | inside a GFM table cell splits the
   // cell, code span or not.
   const spacing = doc.spacing.spacingSizes.map(
-    (s) => `| \`${s.slug}\` | ${s.size} | \`var:preset\\|spacing\\|${s.slug}\` |`
+    (s) =>
+      `| \`${s.slug}\` | ${s.size} | \`var:preset\\|spacing\\|${s.slug}\` | ` +
+      `\`var(--wp--preset--spacing--${wpKebab(s.slug)})\` |`
   );
 
   return `# ${doc.meta.name}
@@ -419,15 +426,18 @@ section surface. Alternate \`surface\` and \`neutral\` for section backgrounds.
 
 ## Type scale
 
-| Slug | Size |
-|---|---|
+| Slug | Size | Class |
+|---|---|---|
 ${sizes.join("\n")}
 
 ## Spacing scale
 
-| Slug | Size | Reference |
-|---|---|---|
+| Slug | Size | Reference | CSS |
+|---|---|---|---|
 ${spacing.join("\n")}
+
+Block attributes take the slug as written. Classes and inline styles use the
+kebab-cased name WordPress declares, as in the last column of each table.
 
 Section rhythm: default \`${doc.styles.sectionRhythm.default}\`, tight
 \`${doc.styles.sectionRhythm.tight}\`, loose \`${doc.styles.sectionRhythm.loose}\`.

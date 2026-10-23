@@ -147,6 +147,35 @@ test("a bogus overlayColor is reported against the palette", () => {
   assert.match(preset[0].message, /color preset "drak"/);
 });
 
+test("a preset resolves the way WordPress resolves each form of naming it", () => {
+  const paragraph = (attrs, style) =>
+    `<!-- wp:paragraph ${attrs} -->\n<p style="font-size:${style}">Otsikko</p>\n<!-- /wp:paragraph -->`;
+  const presetErrors = (markup) =>
+    validateMarkup(markup, { themeJson }).errors.filter((e) => e.rule === "preset-slugs-exist");
+
+  // WordPress kebab-cases the slug of a var:preset reference when it renders
+  // the block, so the theme.json slug h2 and its kebab form h-2 both resolve.
+  for (const slug of ["h2", "h-2"]) {
+    const markup = paragraph(
+      `{"style":{"typography":{"fontSize":"var:preset|font-size|${slug}"}}}`,
+      "var(--wp--preset--font-size--h-2)"
+    );
+    assert.deepEqual(presetErrors(markup), [], slug);
+  }
+
+  // CSS is never rewritten, and WordPress declares the h2 preset as
+  // --wp--preset--font-size--h-2, so the raw name dangles.
+  const dangling = presetErrors(paragraph("{}", "var(--wp--preset--font-size--h2)"));
+  assert.equal(dangling.length, 1, JSON.stringify(dangling));
+  assert.match(dangling[0].message, /var\(--wp--preset--font-size--h2\)/);
+
+  // A named attribute is looked up by its exact slug.
+  const named = presetErrors(
+    '<!-- wp:paragraph {"fontSize":"h-2"} -->\n<p class="has-h-2-font-size">Otsikko</p>\n<!-- /wp:paragraph -->'
+  );
+  assert.equal(named.length, 1, JSON.stringify(named));
+});
+
 test("a custom fontSize length is not mistaken for a preset slug", () => {
   const markup =
     '<!-- wp:paragraph {"style":{"typography":{"fontSize":"13px"}}} -->\n' +
