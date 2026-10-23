@@ -22,13 +22,14 @@ import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { lintDesignSystem } from "./lint-design-system.mjs";
 
-// WordPress expands "var:preset|font-size|h2" by joining the parts with "--",
+// theme.json expands "var:preset|font-size|h2" by joining the parts with "--",
 // without touching the slug, so it becomes var(--wp--preset--font-size--h2).
 // The preset itself is declared under _wp_to_kebab_case(slug), which is
 // --wp--preset--font-size--h-2. A raw slug with a letter-digit boundary
-// therefore dangles: every h1-h3 element style fell back to the body size
-// (seen on WordPress 7.1). Kebab-casing here makes both names agree, and is a
-// no-op for slugs that are already kebab case or purely numeric ("50").
+// therefore dangles: every h1-h3 element style fell back to the body size on
+// WordPress 7.0 and 7.1. Kebab-casing here makes both names agree. WordPress
+// 7.2 kebab-cases the reference itself, which changes nothing that is already
+// kebab case.
 const PRESET_VAR = {
   color: (slug) => `var:preset|color|${wpKebab(slug)}`,
   fontFamily: (slug) => `var:preset|font-family|${wpKebab(slug)}`,
@@ -36,25 +37,31 @@ const PRESET_VAR = {
   spacing: (slug) => `var:preset|spacing|${wpKebab(slug)}`
 };
 
-// WordPress runs settings.custom keys through _wp_to_kebab_case before naming
-// the custom property, and that transform splits letter-digit boundaries, so
-// the key "h1" becomes --wp--custom--line-height--h-1. References built here
-// must apply the same transform or they dangle. The keys themselves are
-// emitted untransformed, WordPress kebab-cases those on its own.
-function wpKebab(slug) {
-  return slug
+/**
+ * _wp_to_kebab_case, the transform WordPress names preset variables, preset
+ * classes and settings.custom properties with, for the slugs the schema allows
+ * (lowercase letters, digits, hyphens). A letter-digit boundary gets a hyphen,
+ * so "h1" becomes "h-1", except where an ordinal ends a word ("2nd", "4th"),
+ * which WordPress keeps whole. Runs of hyphens collapse and edge hyphens go.
+ * Every reference built here goes through it, or it dangles. The slugs and
+ * keys themselves are emitted as written, WordPress kebab-cases those itself.
+ */
+export function wpKebab(slug) {
+  return String(slug)
     .replace(/([a-z])([A-Z])/g, "$1-$2")
+    .replace(/([0-9])(?!(?:(?<=1)st|(?<=2)nd|(?<=3)rd|(?<![123])th)(?![a-z0-9]))([a-zA-Z])/g, "$1-$2")
     .replace(/([a-zA-Z])([0-9])/g, "$1-$2")
-    .replace(/([0-9])([a-zA-Z])/g, "$1-$2")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-|-$/g, "")
     .toLowerCase();
 }
 
-// settings.custom values are emitted as plain CSS, so they use the resolved
-// custom property rather than the var:preset| shorthand, which WordPress only
-// expands inside styles.
+// settings.custom values name the preset's custom property directly, and
+// WordPress emits them as written, so the slug is kebab-cased here the way
+// WordPress kebab-cases it when it declares the preset.
 const CSS_VAR = {
-  color: (slug) => `var(--wp--preset--color--${slug})`,
-  spacing: (slug) => `var(--wp--preset--spacing--${slug})`,
+  color: (slug) => `var(--wp--preset--color--${wpKebab(slug)})`,
+  spacing: (slug) => `var(--wp--preset--spacing--${wpKebab(slug)})`,
   lineHeight: (slug) => `var(--wp--custom--line-height--${wpKebab(slug)})`
 };
 

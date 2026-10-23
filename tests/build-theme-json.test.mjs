@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { buildThemeJson, serialize } from "../tools/build-theme-json.mjs";
+import { buildThemeJson, serialize, wpKebab } from "../tools/build-theme-json.mjs";
 
 const examplePath = fileURLToPath(
   new URL("../examples/agency-site/input/design-system.json", import.meta.url)
@@ -150,6 +150,50 @@ test("a fontFace fontStretch range reaches theme.json unchanged", () => {
 test("numeric spacing slugs pass through the kebab transform unchanged", () => {
   const theme = buildThemeJson(example);
   assert.equal(theme.styles.spacing.blockGap, "var:preset|spacing|40");
+});
+
+test("the kebab transform matches WordPress on the slugs the schema allows", () => {
+  // Each expected value is what WordPress's own _wp_to_kebab_case returns. An
+  // ordinal ending a word stays whole: white2nd and white4th come from its
+  // unit tests.
+  const cases = [
+    ["h1", "h-1"],
+    ["h10", "h-10"],
+    ["50", "50"],
+    ["x-large", "x-large"],
+    ["accent2", "accent-2"],
+    ["s1", "s-1"],
+    ["2xl", "2-xl"],
+    ["white2nd", "white-2nd"],
+    ["white4th", "white-4th"],
+    ["accent-2nd", "accent-2nd"],
+    ["level-11th", "level-11-th"],
+    ["brand--dark", "brand-dark"],
+    ["primary-", "primary"],
+    [40, "40"]
+  ];
+  for (const [slug, expected] of cases) assert.equal(wpKebab(slug), expected, String(slug));
+});
+
+test("custom properties name a preset the same way the styles do", () => {
+  // settings.custom values are CSS that WordPress emits as written, so a raw
+  // "neutral2" there would point at --wp--preset--color--neutral2, which
+  // WordPress never declares: the card would lose its background and every
+  // section its rhythm padding.
+  const doc = withChange((d) => {
+    d.palette.push({ slug: "neutral2", name: "Neutral 2", color: "#e8e8e3" });
+    d.spacing.spacingSizes.push({ slug: "s5", name: "S5", size: "64px" });
+    d.styles.card.background = "neutral2";
+    d.styles.sectionRhythm.default = "s5";
+    d.elements.button.hover.background = "neutral2";
+  });
+  const theme = buildThemeJson(doc);
+  assert.equal(theme.settings.custom.card.background, "var(--wp--preset--color--neutral-2)");
+  assert.equal(theme.settings.custom.sectionRhythm.default, "var(--wp--preset--spacing--s-5)");
+  assert.equal(
+    theme.styles.elements.button[":hover"].color.background,
+    "var:preset|color|neutral-2"
+  );
 });
 
 test("one fluid size turns the global flag on and flags every preset", () => {
